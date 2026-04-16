@@ -98,7 +98,7 @@ Wraps `requests` for GET and POST to the modem. Sets the required `Referer` and 
 
 ### `src/sms.py`
 - `list_sms(modem_ip)` — GET SMS list, strip control characters, decode hex content, return list of dicts
-- `send_sms(modem_ip, phone, message)` — hex-encode message, POST to send
+- `send_sms(modem_ip, phone, message)` — hex-encode message, POST to send; SMS timestamp derived from system local timezone
 - `delete_sms(modem_ip, id_or_star)` — delete by ID or fetch all IDs and delete each
 
 ### `src/wifi.py`
@@ -123,6 +123,6 @@ Wraps `requests` for GET and POST to the modem. Sets the required `Referer` and 
 
 - Stateless login-per-command (no session caching)
 - Default TFTP IP: `192.168.0.22`
-- SMS timezone offset: `+3`
+- SMS timestamp uses the system's local timezone (via Python's `datetime` with `astimezone()`)
 - Password base64-encoded before sending to modem
 - SMS message body hex-encoded as UCS-2LE codepoints
