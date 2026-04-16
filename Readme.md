@@ -1,3 +1,38 @@
+## Python Version
+
+**Requires:** Python 3.8+
+
+**Install dependencies:**
+```
+pip install -r requirements.txt
+```
+
+**Configure credentials** — copy `.env.example` to `.env` and edit:
+```
+MODEM_IP=192.168.0.1
+PASSWORD=admin
+```
+
+**CLI usage:**
+```
+python zte.py [--ip IP] [--password PASS] <command> [args]
+```
+
+| command | arg1 | arg2 | Result |
+|---------|------|------|--------|
+| login | on/off | | Login or logoff |
+| ls | | | List all SMS messages |
+| rm | # | | Delete message # |
+| rm | * | | Delete all messages |
+| snd | Phone# | 'Message' | Send SMS |
+| wifi | on/off | | Enable or disable WiFi |
+| wan | on/off | | Connect or disconnect WAN |
+| hack | | | Hack modem (Method 2) |
+| hack3 | [tftp_ip] | | Hack modem (Method 3, zte_debug.sh) |
+| hack3d | [tftp_ip] | | Hack modem (Method 3 direct) |
+
+---
+
 # ZTE API and Hack
 
 ## PHP Classes
