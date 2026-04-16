@@ -1,6 +1,6 @@
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 from urllib.parse import quote
 
 from src.http_client import get, post
@@ -14,7 +14,9 @@ def list_sms(modem_ip):
         "&mem_store=1&tags=10&order_by=order+by+id+desc"
     )
     raw = get(modem_ip, params)
-    # Strip control characters that break JSON parsing
+    # ZTE modems embed null bytes and other C0 control characters in JSON responses,
+    # which break json.loads. Strip them before parsing. SMS content is hex-encoded
+    # in the response, so stripping these bytes does not corrupt message text.
     raw = re.sub(r"[\x00-\x1f]", "", raw)
     data = json.loads(raw)
     messages = []
@@ -37,6 +39,8 @@ def send_sms(modem_ip, phone, message):
     now = datetime.now().astimezone()
     offset_seconds = int(now.utcoffset().total_seconds())
     offset_hours = offset_seconds // 3600
+    # Note: sub-hour offsets (e.g. UTC+5:30) are truncated — matches PHP behavior.
+    # The modem uses this only for display; practical impact is cosmetic.
     tz_str = f"+{offset_hours}" if offset_hours >= 0 else str(offset_hours)
     sms_time = now.strftime(f"%y;%m;%d;%H;%M;%S;{tz_str}")
 

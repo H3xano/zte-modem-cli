@@ -85,7 +85,7 @@ def _cmd_login(modem_ip, password, args):
         ok("Logged out.") if logout(modem_ip) else err("Logout failed.")
 
 
-def _cmd_ls(modem_ip, password):
+def _cmd_ls(modem_ip, password, cmd_args=None):
     from src.login import login, logout
     from src.sms import list_sms
     login(modem_ip, password)
@@ -163,7 +163,7 @@ def _cmd_wan(modem_ip, password, args):
     ok(f"WAN {state}.") if success else err(f"Could not {'connect' if connect else 'disconnect'} WAN.")
 
 
-def _cmd_hack(modem_ip, password):
+def _cmd_hack(modem_ip, password, cmd_args=None):
     from src.login import login, logout
     from src.hack import exploits_nvram, factory_backdoor
     login(modem_ip, password)
@@ -242,12 +242,7 @@ def main():
 
     try:
         fn = COMMANDS[cmd]
-        # Commands that don't take extra args (ls, hack)
-        if cmd in ("ls", "hack"):
-            fn(modem_ip, password)
-        # Commands that take extra args
-        elif cmd in ("login", "rm", "snd", "wifi", "wan", "hack3", "hack3d"):
-            fn(modem_ip, password, cmd_args)
+        fn(modem_ip, password, cmd_args)
     except Exception as e:
         err(f"Error: {e}")
         sys.exit(1)

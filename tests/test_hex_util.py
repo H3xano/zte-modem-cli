@@ -35,3 +35,8 @@ def test_encode_empty():
 
 def test_decode_empty():
     assert hex_decode("") == ""
+
+
+def test_roundtrip_emoji():
+    text = "Hi 😀"
+    assert hex_decode(hex_encode(text)) == text
