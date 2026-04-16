@@ -32,8 +32,6 @@ class Curl
       return "Error_-_Invalid_Curl_Type";
     }
 
-    $ch = curl_init();
-
     if ($this->_type == "GET") {
       $url = $this->_url_prefix.$this->_modem_ip.$this->_url_get.$this->_data;
     }
@@ -42,18 +40,41 @@ class Curl
       $url = $this->_url_prefix.$this->_modem_ip.$this->_url_set;
     }
 
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_VERBOSE, $this->_verb);
+    if (function_exists('curl_init')) {
+      $ch = curl_init();
+      curl_setopt($ch, CURLOPT_URL, $url);
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+      curl_setopt($ch, CURLOPT_VERBOSE, $this->_verb);
 
-    if ($this->_type == "GET") {
-      curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $this->_type);
-      curl_setopt($ch, CURLOPT_ENCODING, 'gzip, deflate');
-    }
+      if ($this->_type == "GET") {
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $this->_type);
+        curl_setopt($ch, CURLOPT_ENCODING, 'gzip, deflate');
+      }
 
-    if ($this->_type == "POST") {
-      curl_setopt($ch, CURLOPT_POST, true);
-      curl_setopt($ch, CURLOPT_POSTFIELDS, $this->_data);
+      if ($this->_type == "POST") {
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $this->_data);
+      }
+
+      $header = array();
+      $header[] = 'Host: '.$this->_modem_ip;
+      $header[] = 'Referer: '.$this->_url_prefix.$this->_modem_ip.$this->_referer;
+
+      if ($this->_type == "POST") {
+        $header[] = 'Content-Type: application/x-www-form-urlencoded';
+      }
+
+      curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
+
+      $result = curl_exec($ch);
+
+      if (curl_errno($ch)) {
+        return 'Error: ' . curl_error($ch);
+      }
+
+      curl_close($ch);
+
+      return $result;
     }
 
     $header = array();
@@ -64,15 +85,25 @@ class Curl
       $header[] = 'Content-Type: application/x-www-form-urlencoded';
     }
 
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
+    $contextOptions = [
+      'http' => [
+        'method' => $this->_type,
+        'header' => implode("\r\n", $header),
+        'ignore_errors' => true,
+      ]
+    ];
 
-    $result = curl_exec($ch);
-
-    if (curl_errno($ch)) {
-      return 'Error: ' . curl_error($ch);
+    if ($this->_type == "POST") {
+      $contextOptions['http']['content'] = $this->_data;
     }
 
-    curl_close($ch);
+    $context = stream_context_create($contextOptions);
+    $result = @file_get_contents($url, false, $context);
+
+    if ($result === false) {
+      $error = error_get_last();
+      return 'Error: ' . ($error['message'] ?? 'Unable to connect');
+    }
 
     return $result;
   }

